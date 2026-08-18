@@ -1,4 +1,4 @@
-# Pathfinders
+# LeopardPlan
 
 A schedule planner for Wentworth students. You pick filters, you add sections to
 a plan, and the plan shows you the week and any time clash before you register.
@@ -12,7 +12,7 @@ comes from the WIT Coding Club public catalog API, which needs no key.
 
 ```mermaid
 flowchart LR
-    U[Student] --> A[Pathfinders<br/>static site on Vercel]
+    U[Student] --> A[LeopardPlan<br/>static site on Vercel]
     A -->|GET /api/v1/catalog/...| B[calendar.witcc.dev]
     B --> C[(Course catalog)]
     A --> L[(localStorage<br/>the saved plan)]

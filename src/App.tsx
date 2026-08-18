@@ -168,7 +168,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden dark:bg-slate-950 dark:text-slate-100">
       <header className="border-b border-slate-200 bg-white lg:shrink-0 dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-7xl flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3">
-          <h1 className="text-lg font-semibold">Pathfinders</h1>
+          <h1 className="text-lg font-semibold">LeopardPlan</h1>
           <p className="text-sm text-slate-500">
             Build a WIT schedule before you register.
           </p>

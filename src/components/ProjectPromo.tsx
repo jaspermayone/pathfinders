@@ -2,7 +2,7 @@
 export const PROJECT_URL = "https://calendar.witcc.dev";
 
 /**
- * Pathfinders only plans a schedule. The WIT Coding Club calendar project is
+ * LeopardPlan only plans a schedule. The WIT Coding Club calendar project is
  * what carries the schedule into Google Calendar once the student registers,
  * so the two belong next to each other.
  */
