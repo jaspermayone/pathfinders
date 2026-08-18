@@ -7,6 +7,7 @@ import { ScheduleGrid } from "./components/ScheduleGrid";
 import { SectionCard } from "./components/SectionCard";
 import { useAsync, useDebounced, useStoredState } from "./lib/hooks";
 import { conflictingCrns, findConflicts, totalCredits } from "./lib/schedule";
+import { defaultTermUid, selectableTerms } from "./lib/terms";
 
 const PER_PAGE = 50;
 
@@ -35,9 +36,16 @@ export default function App() {
 
   const terms = useAsync((signal) => catalog.terms(signal), []);
 
-  // Default to the newest term once the list arrives, so the page is not empty
-  // on first load.
-  const termUid = debounced.termUid ?? terms.data?.[0]?.uid;
+  // The catalog lists every term the registrar ever defined. Only offer the
+  // ones that actually hold sections.
+  const offeredTerms = useMemo(
+    () => selectableTerms(terms.data ?? []),
+    [terms.data],
+  );
+
+  // Default to the newest usable term once the list arrives, so the page is
+  // not empty on first load.
+  const termUid = debounced.termUid ?? defaultTermUid(terms.data ?? []);
 
   const subjects = useAsync(
     (signal) => catalog.subjects(termUid, signal),
@@ -82,7 +90,7 @@ export default function App() {
         <aside className="lg:sticky lg:top-6 lg:self-start">
           <FilterPanel
             filters={{ ...filters, termUid }}
-            terms={terms.data ?? []}
+            terms={offeredTerms}
             subjects={subjects.data ?? []}
             onChange={onFiltersChange}
           />

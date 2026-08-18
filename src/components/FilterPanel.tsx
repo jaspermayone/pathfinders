@@ -43,11 +43,12 @@ export function FilterPanel({ filters, terms, subjects, onChange }: Props) {
           id="term"
           className={fieldClass}
           value={filters.termUid ?? ""}
-          onChange={(event) =>
-            set("termUid", event.target.value ? Number(event.target.value) : undefined)
-          }
+          disabled={terms.length === 0}
+          onChange={(event) => set("termUid", Number(event.target.value))}
         >
-          <option value="">All terms</option>
+          {/* No "all terms" choice. A plan belongs to one term, and a clash
+              between two terms is not a clash. */}
+          {terms.length === 0 && <option value="">Loading terms…</option>}
           {terms.map((term) => (
             <option key={term.uid} value={term.uid}>
               {term.name}
