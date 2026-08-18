@@ -8,9 +8,20 @@ import type {
   Term,
 } from "./types";
 
-const BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ?? "https://calendar.witcc.dev"
-).replace(/\/$/, "");
+const DEFAULT_BASE_URL = "https://calendar.witcc.dev";
+
+/**
+ * Resolve the API host. An unset variable and an empty one must behave the
+ * same: `??` alone keeps "", which makes every request relative, and a host
+ * that rewrites unknown paths to index.html then answers with HTML instead of
+ * JSON. Treat blank as absent.
+ */
+export function resolveBaseUrl(raw: string | undefined): string {
+  const trimmed = raw?.trim();
+  return (trimmed ? trimmed : DEFAULT_BASE_URL).replace(/\/$/, "");
+}
+
+const BASE_URL = resolveBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 /** An error the API reported itself, with its filter message intact. */
 export class ApiError extends Error {
@@ -85,6 +96,20 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
       body.error ?? `Request failed with status ${response.status}`,
       response.status,
       body.code ?? "UNKNOWN",
+    );
+  }
+
+  // A 200 that is not JSON means something other than the API answered, most
+  // often a static host rewriting an unknown path to index.html. Say that,
+  // rather than leaking a parse error about "<!doctype".
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("json")) {
+    throw new ApiError(
+      `Expected JSON from ${BASE_URL}${path} but received "${
+        contentType || "no content type"
+      }". Check VITE_API_BASE_URL.`,
+      response.status,
+      "UNKNOWN",
     );
   }
 

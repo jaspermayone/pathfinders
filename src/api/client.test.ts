@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, catalog, __testing } from "./client";
+import { ApiError, catalog, resolveBaseUrl, __testing } from "./client";
 
 const { toQuery } = __testing;
 
@@ -7,10 +7,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function stubFetch(body: unknown, init: { ok?: boolean; status?: number } = {}) {
+function stubFetch(
+  body: unknown,
+  init: { ok?: boolean; status?: number; contentType?: string } = {},
+) {
+  const contentType = init.contentType ?? "application/json; charset=utf-8";
   const fetchMock = vi.fn().mockResolvedValue({
     ok: init.ok ?? true,
     status: init.status ?? 200,
+    headers: { get: (name: string) => (name === "content-type" ? contentType : null) },
     json: () => Promise.resolve(body),
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -79,5 +84,46 @@ describe("error handling", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(429);
     expect((error as ApiError).code).toBe("UNKNOWN");
+  });
+});
+
+describe("resolveBaseUrl", () => {
+  it("uses the configured host", () => {
+    expect(resolveBaseUrl("https://staging.example.com")).toBe(
+      "https://staging.example.com",
+    );
+  });
+
+  it("drops a trailing slash so paths do not double up", () => {
+    expect(resolveBaseUrl("https://example.com/")).toBe("https://example.com");
+  });
+
+  it("falls back when the variable is missing", () => {
+    expect(resolveBaseUrl(undefined)).toBe("https://calendar.witcc.dev");
+  });
+
+  it("falls back when the variable is empty", () => {
+    // The deploy bug: an empty value made every request relative, so the
+    // static host answered with index.html instead of the API.
+    expect(resolveBaseUrl("")).toBe("https://calendar.witcc.dev");
+  });
+
+  it("falls back when the variable is only whitespace", () => {
+    expect(resolveBaseUrl("   ")).toBe("https://calendar.witcc.dev");
+  });
+});
+
+describe("non-JSON responses", () => {
+  it("reports the content type instead of a parse error", async () => {
+    stubFetch("<!doctype html>", { contentType: "text/html; charset=utf-8" });
+
+    await expect(catalog.terms()).rejects.toThrow(ApiError);
+    await expect(catalog.terms()).rejects.toThrow(/VITE_API_BASE_URL/);
+  });
+
+  it("still accepts a JSON content type with parameters", async () => {
+    stubFetch({ data: [] }, { contentType: "application/json; charset=utf-8" });
+
+    await expect(catalog.terms()).resolves.toEqual([]);
   });
 });
