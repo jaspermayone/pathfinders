@@ -1,5 +1,7 @@
-import type { Section } from "../api/types";
+import { useState } from "react";
+import type { Instructor, Section } from "../api/types";
 import { sectionHue } from "../lib/schedule";
+import { InstructorDialog } from "./InstructorDialog";
 import { RmpBadge } from "./RmpBadge";
 import { SeatBar } from "./SeatBar";
 
@@ -22,6 +24,7 @@ const DAY_LETTER: Record<string, string> = {
 
 export function SectionCard({ section, inPlan, conflicting, onToggle }: Props) {
   const hue = sectionHue(section.crn);
+  const [shown, setShown] = useState<Instructor | null>(null);
 
   return (
     <article
@@ -75,10 +78,16 @@ export function SectionCard({ section, inPlan, conflicting, onToggle }: Props) {
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {section.instructors.map((instructor) => (
-          <span key={instructor.pub_id} className="flex items-center gap-1 text-sm">
-            <span className="text-slate-700 dark:text-slate-300">{instructor.name}</span>
+          <button
+            key={instructor.pub_id}
+            type="button"
+            onClick={() => setShown(instructor)}
+            aria-label={`Details for ${instructor.name}`}
+            className="flex items-center gap-1 rounded px-1 py-0.5 text-sm text-slate-700 underline decoration-dotted underline-offset-2 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {instructor.name}
             <RmpBadge instructor={instructor} />
-          </span>
+          </button>
         ))}
         {section.instructors.length === 0 && (
           <span className="text-sm italic text-slate-500">Instructor to be announced</span>
@@ -96,6 +105,10 @@ export function SectionCard({ section, inPlan, conflicting, onToggle }: Props) {
         <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
           This clashes with another section in your plan.
         </p>
+      )}
+
+      {shown && (
+        <InstructorDialog instructor={shown} onClose={() => setShown(null)} />
       )}
     </article>
   );

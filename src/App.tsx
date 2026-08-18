@@ -7,6 +7,7 @@ import { ScheduleGrid } from "./components/ScheduleGrid";
 import { SectionCard } from "./components/SectionCard";
 import { useAsync, useDebounced, useStoredState } from "./lib/hooks";
 import { conflictingCrns, findConflicts, totalCredits } from "./lib/schedule";
+import { meetsMinRating } from "./lib/rmp";
 import { defaultTermUid, selectableTerms } from "./lib/terms";
 
 const PER_PAGE = 50;
@@ -57,6 +58,16 @@ export default function App() {
     [JSON.stringify(debounced), termUid, page],
   );
 
+  // The catalog API has no rating filter yet, so this one runs here, over the
+  // page already loaded. The count below says so, rather than reporting a
+  // server total that the filter did not touch.
+  const shownSections = useMemo(() => {
+    const all = sections.data?.data ?? [];
+    return debounced.minRating > 0
+      ? all.filter((section) => meetsMinRating(section.instructors, debounced.minRating))
+      : all;
+  }, [sections.data, debounced.minRating]);
+
   const planCrns = useMemo(() => new Set(plan.map((s) => s.crn)), [plan]);
   const clashing = useMemo(() => conflictingCrns(plan), [plan]);
   const conflicts = useMemo(() => findConflicts(plan), [plan]);
@@ -101,9 +112,11 @@ export default function App() {
             <h2 className="text-sm font-medium text-slate-500">
               {sections.loading
                 ? "Searching…"
-                : meta
-                  ? `${meta.total_count.toLocaleString()} sections`
-                  : "Sections"}
+                : !meta
+                  ? "Sections"
+                  : debounced.minRating > 0
+                    ? `${shownSections.length} of ${sections.data?.data.length ?? 0} on this page`
+                    : `${meta.total_count.toLocaleString()} sections`}
             </h2>
             {meta && meta.total_pages > 1 && (
               <div className="flex items-center gap-2 text-sm">
@@ -147,14 +160,15 @@ export default function App() {
             </div>
           )}
 
-          {!sections.error && sections.data?.data.length === 0 && (
+          {!sections.error && sections.data && shownSections.length === 0 && (
             <p className="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
-              No section matches these filters. Try clearing a free day or a time limit.
+              No section matches these filters. Try clearing a free day, a time
+              limit, or the rating.
             </p>
           )}
 
           <div className="space-y-2">
-            {sections.data?.data.map((section) => (
+            {shownSections.map((section) => (
               <SectionCard
                 key={`${section.term.uid}-${section.crn}`}
                 section={section}

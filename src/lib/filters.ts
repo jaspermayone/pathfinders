@@ -9,6 +9,8 @@ export interface Filters {
   beginsAfter: string;
   endsBefore: string;
   instructor: string;
+  /** Lowest Rate My Professors average to accept. 0 turns the filter off. */
+  minRating: number;
 }
 
 export const EMPTY_FILTERS: Filters = {
@@ -19,4 +21,5 @@ export const EMPTY_FILTERS: Filters = {
   beginsAfter: "",
   endsBefore: "",
   instructor: "",
+  minRating: 0,
 };

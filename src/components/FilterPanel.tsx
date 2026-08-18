@@ -83,6 +83,28 @@ export function FilterPanel({ filters, terms, subjects, onChange }: Props) {
         />
       </div>
 
+      <div>
+        <label htmlFor="minRating" className="mb-1 block text-xs font-medium text-slate-500">
+          Lowest professor rating
+        </label>
+        <select
+          id="minRating"
+          className={fieldClass}
+          value={filters.minRating}
+          onChange={(event) => set("minRating", Number(event.target.value))}
+        >
+          <option value={0}>Any rating</option>
+          <option value={3}>3.0 ★ and up</option>
+          <option value={3.5}>3.5 ★ and up</option>
+          <option value={4}>4.0 ★ and up</option>
+          <option value={4.5}>4.5 ★ and up</option>
+        </select>
+        <p className="mt-1 text-xs text-slate-500">
+          Keeps a section if one of its instructors reaches the rating. Sections
+          with no rated instructor are dropped.
+        </p>
+      </div>
+
       <fieldset>
         <legend className="mb-1 text-xs font-medium text-slate-500">Keep these days free</legend>
         <div className="flex flex-wrap gap-1">
