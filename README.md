@@ -24,9 +24,9 @@ browser. The app sends no user data anywhere.
 ## Getting started
 
 ```bash
-pnpm install
+bun install
 cp .env.example .env
-pnpm dev
+bun run dev
 ```
 
 The app defaults to the production API at `https://calendar.witcc.dev`, so it
@@ -35,11 +35,11 @@ server instead.
 
 | Command | Effect |
 | --- | --- |
-| `pnpm dev` | Start the dev server |
-| `pnpm build` | Type check, then build to `dist/` |
-| `pnpm test` | Run the unit tests |
-| `pnpm lint` | Run oxlint |
-| `pnpm typecheck` | Type check only |
+| `bun run dev` | Start the dev server |
+| `bun run build` | Type check, then build to `dist/` |
+| `bun run test` | Run the unit tests |
+| `bun run lint` | Run oxlint |
+| `bun run typecheck` | Type check only |
 
 ## Layout
 
@@ -61,7 +61,7 @@ server instead.
   meeting times only. It does not know about prerequisites, holds, or class
   standing.
 - **The app cannot register you.** It shows CRNs to copy. Registration stays in
-  Workday, on purpose.
+  Banner, on purpose.
 
 ## API
 

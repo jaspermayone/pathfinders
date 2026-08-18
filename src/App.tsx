@@ -217,8 +217,8 @@ export default function App() {
                 </ul>
 
                 <p className="mt-3 text-xs text-slate-500">
-                  Copy these CRNs into Workday or LeopardWeb to register. This page
-                  does not register you.
+                  Copy these CRNs into LeopardWeb to register. This page does not
+                  register you.
                 </p>
               </>
             )}
@@ -228,8 +228,8 @@ export default function App() {
 
       <footer className="mx-auto max-w-7xl px-4 pb-8 text-xs text-slate-500">
         Course data from the WIT Coding Club public catalog API. Seat counts are
-        refreshed nightly and are not live. Always confirm in Workday before you
-        register.
+        refreshed nightly and are not live. Always confirm in LeopardWeb before
+        you register.
       </footer>
     </div>
   );
