@@ -4,6 +4,7 @@ import type { Section } from "./api/types";
 import { FilterPanel } from "./components/FilterPanel";
 import { EMPTY_FILTERS, type Filters } from "./lib/filters";
 import { ScheduleGrid } from "./components/ScheduleGrid";
+import { ProjectPromo, PROJECT_URL } from "./components/ProjectPromo";
 import { SectionCard } from "./components/SectionCard";
 import { useAsync, useDebounced, useStoredState } from "./lib/hooks";
 import { conflictingCrns, findConflicts, totalCredits } from "./lib/schedule";
@@ -245,13 +246,29 @@ export default function App() {
               </>
             )}
           </div>
+
+          <ProjectPromo className="mt-4" />
         </aside>
       </main>
 
-      <footer className="mx-auto max-w-7xl px-4 pb-8 text-xs text-slate-500">
-        Course data from the WIT Coding Club public catalog API. Seat counts are
-        refreshed nightly and are not live. Always confirm in LeopardWeb before
-        you register.
+      <footer className="mx-auto max-w-7xl space-y-1 px-4 pb-8 text-xs text-slate-500">
+        <p>
+          Course data from the{" "}
+          <a
+            href={PROJECT_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-300"
+          >
+            WIT Calendar
+          </a>{" "}
+          public catalog API. Seat counts are refreshed nightly and are not
+          live. Always confirm in LeopardWeb before you register.
+        </p>
+        <p>
+          WIT Calendar is a WIT Coding Club project. It syncs your class
+          schedule to Google Calendar for free.
+        </p>
       </footer>
     </div>
   );
