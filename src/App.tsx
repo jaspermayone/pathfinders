@@ -9,7 +9,12 @@ import { SectionCard } from "./components/SectionCard";
 import { useAsync, useDebounced, useStoredState } from "./lib/hooks";
 import { conflictingCrns, findConflicts, totalCredits } from "./lib/schedule";
 import { meetsMinRating } from "./lib/rmp";
-import { sectionKey, soloPartnerCrn, unpairedSections } from "./lib/linked";
+import {
+  leadSections,
+  sectionKey,
+  soloPartnerCrn,
+  unpairedSections,
+} from "./lib/linked";
 import { batchCrns, indexByCrn, missingPartnerCrns, partnersOf } from "./lib/partners";
 import { defaultTermUid, selectableTerms } from "./lib/terms";
 
@@ -103,6 +108,10 @@ export default function App() {
     [shownSections, plan, partners.data],
   );
 
+  // A lab on this page is shown inside the card of its lecture, so it is not
+  // repeated as a card of its own.
+  const leads = useMemo(() => leadSections(shownSections), [shownSections]);
+
   const planCrns = useMemo(() => new Set(plan.map((s) => s.crn)), [plan]);
   const unpaired = useMemo(() => unpairedSections(plan), [plan]);
   const clashing = useMemo(() => conflictingCrns(plan), [plan]);
@@ -123,6 +132,10 @@ export default function App() {
     setDeclined((previous) => previous.filter((k) => k !== key));
 
     setPlan((previous) => {
+      // The pair gives a section two Add buttons, one on the lecture card and
+      // one on the partner row, so the same section can arrive twice.
+      if (previous.some((s) => s.crn === section.crn)) return previous;
+
       const next = [...previous, section];
 
       // Only one candidate means there is no choice to make, so take it. A
@@ -152,8 +165,8 @@ export default function App() {
   const meta = sections.data?.meta;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 lg:flex lg:h-dvh lg:min-h-0 lg:flex-col lg:overflow-hidden dark:bg-slate-950 dark:text-slate-100">
+      <header className="border-b border-slate-200 bg-white lg:shrink-0 dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-7xl flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3">
           <h1 className="text-lg font-semibold">Pathfinders</h1>
           <p className="text-sm text-slate-500">
@@ -162,8 +175,10 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[16rem_1fr_22rem]">
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+      {/* On a wide screen each column scrolls on its own, so the filters and
+          the plan stay in place while the section list moves. */}
+      <main className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_1fr_22rem]">
+        <aside className="lg:h-full lg:overflow-y-auto lg:pr-1">
           <FilterPanel
             filters={{ ...filters, termUid }}
             terms={offeredTerms}
@@ -172,8 +187,8 @@ export default function App() {
           />
         </aside>
 
-        <section aria-label="Sections">
-          <div className="mb-3 flex items-baseline justify-between gap-2">
+        <section aria-label="Sections" className="lg:h-full lg:overflow-y-auto lg:pr-1">
+          <div className="mb-3 flex items-baseline justify-between gap-2 lg:sticky lg:top-0 lg:z-10 lg:bg-slate-50 lg:py-1 dark:lg:bg-slate-950">
             <h2 className="text-sm font-medium text-slate-500">
               {sections.loading
                 ? "Searching…"
@@ -233,7 +248,7 @@ export default function App() {
           )}
 
           <div className="space-y-2">
-            {shownSections.map((section) => (
+            {leads.map((section) => (
               <SectionCard
                 key={`${section.term.uid}-${section.crn}`}
                 section={section}
@@ -247,7 +262,7 @@ export default function App() {
           </div>
         </section>
 
-        <aside className="lg:sticky lg:top-6 lg:self-start">
+        <aside className="lg:h-full lg:overflow-y-auto lg:pr-1">
           <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-2 flex items-baseline justify-between">
               <h2 className="font-semibold">Your plan</h2>

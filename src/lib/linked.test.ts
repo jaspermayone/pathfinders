@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { LinkedSections, Section } from "../api/types";
 import {
+  bundleKey,
+  leadSections,
+  linkKey,
+  linkSlot,
   missingPartner,
   needsPartner,
   partnerCrns,
@@ -128,5 +132,65 @@ describe("unpairedSections", () => {
 describe("sectionKey", () => {
   it("keeps the same CRN in two terms apart", () => {
     expect(sectionKey(202710, 1)).not.toBe(sectionKey(202620, 1));
+  });
+});
+
+describe("linkSlot and linkKey", () => {
+  it("splits the identifier into the slot letter and the pair key", () => {
+    expect(linkSlot(LECTURE)).toBe("A");
+    expect(linkKey(LECTURE)).toBe("1");
+    expect(linkSlot(LAB_ONE)).toBe("B");
+    expect(linkKey(LAB_ONE)).toBe("1");
+  });
+
+  it("is null for a section Banner does not pair", () => {
+    expect(linkSlot(SOLO)).toBeNull();
+    expect(linkKey(SOLO)).toBeNull();
+  });
+});
+
+describe("bundleKey", () => {
+  it("is the same for a lecture and its labs", () => {
+    expect(bundleKey(LAB_ONE)).toBe(bundleKey(LECTURE));
+    expect(bundleKey(LAB_TWO)).toBe(bundleKey(LECTURE));
+  });
+
+  it("differs for another course with the same identifier", () => {
+    const other = { ...section(4, { required: true, identifier: "A1", crns: [] }) };
+    other.subject_code = "PHYS";
+    expect(bundleKey(other)).not.toBe(bundleKey(LECTURE));
+  });
+
+  it("differs for the same pair key in another term", () => {
+    const later = section(1, { required: true, identifier: "A1", crns: [2] }, 202810);
+    expect(bundleKey(later)).not.toBe(bundleKey(LECTURE));
+  });
+
+  it("falls back to the CRN for an unpaired section", () => {
+    expect(bundleKey(SOLO)).toBe("crn:202710:9");
+    expect(bundleKey(section(5))).toBe("crn:202710:5");
+  });
+});
+
+describe("leadSections", () => {
+  it("keeps the lecture and drops its labs from the top level", () => {
+    expect(leadSections([LECTURE, LAB_ONE, LAB_TWO])).toEqual([LECTURE]);
+  });
+
+  it("keeps the page order", () => {
+    expect(leadSections([LAB_ONE, SOLO, LECTURE])).toEqual([SOLO, LECTURE]);
+  });
+
+  it("keeps a lab whose lecture is not on the page", () => {
+    expect(leadSections([LAB_ONE, LAB_TWO])).toEqual([LAB_ONE, LAB_TWO]);
+  });
+
+  it("keeps two lectures, because they are alternatives", () => {
+    const second = section(4, { required: true, identifier: "A1", crns: [2, 3] });
+    expect(leadSections([LECTURE, second])).toEqual([LECTURE, second]);
+  });
+
+  it("leaves unpaired sections alone", () => {
+    expect(leadSections([SOLO, section(5)])).toEqual([SOLO, section(5)]);
   });
 });

@@ -1,4 +1,5 @@
 import type { Day, MeetingTime, Section } from "../api/types";
+import { bundleKey } from "./linked";
 
 /** "09:45" -> 585. The API sends 24 hour "HH:MM". */
 export function toMinutes(time: string): number {
@@ -113,7 +114,56 @@ export function gridBounds(sections: Section[]): { start: number; end: number } 
   };
 }
 
-/** A stable colour per section, so the grid and the list agree. */
-export function sectionHue(crn: number): number {
-  return (crn * 47) % 360;
+/**
+ * The sections the week view cannot place. An online section has no meeting
+ * time, so it would leave the plan without a trace of it.
+ */
+export function unscheduledSections(sections: Section[]): Section[] {
+  return sections.filter(
+    (section) => section.meeting_times.filter((m) => !m.all_day).length === 0,
+  );
+}
+
+/** The tallest the week view may be, in pixels. */
+export const GRID_MAX_HEIGHT = 340;
+
+/** The shortest a minute may be drawn, so a long day stays readable. */
+const MIN_PIXELS_PER_MINUTE = 0.36;
+
+/** The tallest a minute is drawn, so a short day does not stretch. */
+const MAX_PIXELS_PER_MINUTE = 0.9;
+
+/**
+ * The pixels per minute the week view uses. A plan that spans 08:00 to 21:00
+ * is drawn tighter than one that spans 08:00 to 12:00, so the whole week stays
+ * on screen instead of pushing the page into a long scroll.
+ */
+export function gridScale(start: number, end: number): number {
+  const minutes = Math.max(1, end - start);
+  const fitted = GRID_MAX_HEIGHT / minutes;
+
+  return Math.min(MAX_PIXELS_PER_MINUTE, Math.max(MIN_PIXELS_PER_MINUTE, fitted));
+}
+
+/** A short hour label, for example "8" or "12p", for a narrow time column. */
+export function hourLabel(minute: number): string {
+  const hour = Math.floor(minute / 60) % 24;
+  const clock = hour % 12 === 0 ? 12 : hour % 12;
+
+  return hour === 12 ? "12p" : String(clock);
+}
+
+/**
+ * A stable colour per course, so the grid and the list agree. A lecture and
+ * its lab share the colour, because a student registers them as one course.
+ */
+export function sectionHue(section: Section): number {
+  const key = bundleKey(section);
+  let hash = 0;
+
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) % 360;
+  }
+
+  return hash;
 }

@@ -103,6 +103,8 @@ export interface LinkedSections {
   identifier: string | null;
   /** CRNs of the partner sections in the same term. */
   crns: number[];
+  /** Public ids of the same partners, in the same order. Older builds omit it. */
+  pub_ids?: string[];
 }
 
 export interface Section {

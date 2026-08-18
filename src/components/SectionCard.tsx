@@ -34,7 +34,7 @@ export function SectionCard({
   partners = [],
   plannedCrns,
 }: Props) {
-  const hue = sectionHue(section.crn);
+  const hue = sectionHue(section);
   const [shown, setShown] = useState<Instructor | null>(null);
 
   return (

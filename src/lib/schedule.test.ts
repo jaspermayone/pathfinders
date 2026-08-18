@@ -5,10 +5,15 @@ import {
   findConflicts,
   fromMinutes,
   gridBounds,
+  GRID_MAX_HEIGHT,
+  gridScale,
+  hourLabel,
   meetingsByDay,
   meetingsOverlap,
+  sectionHue,
   toMinutes,
   totalCredits,
+  unscheduledSections,
 } from "./schedule";
 
 function meeting(
@@ -175,5 +180,73 @@ describe("gridBounds", () => {
     const a = section(1, [meeting("monday", "00:00", "00:00", { all_day: true })]);
 
     expect(gridBounds([a])).toEqual({ start: 480, end: 1080 });
+  });
+});
+
+describe("sectionHue", () => {
+  it("gives a lecture and its lab the same colour", () => {
+    const lecture = section(1, [], {
+      linked: { required: true, identifier: "A1", crns: [2] },
+    });
+    const lab = section(2, [], {
+      linked: { required: true, identifier: "B1", crns: [1] },
+    });
+
+    expect(sectionHue(lab)).toBe(sectionHue(lecture));
+  });
+
+  it("gives another course a colour of its own", () => {
+    const lecture = section(1, [], {
+      linked: { required: true, identifier: "A1", crns: [2] },
+    });
+    const other = section(7, [], { subject_code: "PHYS" });
+
+    expect(sectionHue(other)).not.toBe(sectionHue(lecture));
+  });
+
+  it("stays in the hue range", () => {
+    const hue = sectionHue(section(3, []));
+    expect(hue).toBeGreaterThanOrEqual(0);
+    expect(hue).toBeLessThan(360);
+  });
+});
+
+describe("gridScale", () => {
+  it("draws a short day at the full size", () => {
+    expect(gridScale(8 * 60, 12 * 60)).toBe(0.9);
+  });
+
+  it("tightens a long day so the week stays on screen", () => {
+    const scale = gridScale(8 * 60, 21 * 60);
+    expect(scale).toBeLessThan(0.9);
+    expect((21 * 60 - 8 * 60) * scale).toBeLessThanOrEqual(GRID_MAX_HEIGHT);
+  });
+
+  it("never goes below the readable floor", () => {
+    expect(gridScale(0, 24 * 60)).toBe(0.36);
+  });
+});
+
+describe("hourLabel", () => {
+  it("writes the hour in short form", () => {
+    expect(hourLabel(8 * 60)).toBe("8");
+    expect(hourLabel(11 * 60)).toBe("11");
+    expect(hourLabel(12 * 60)).toBe("12p");
+    expect(hourLabel(13 * 60)).toBe("1");
+    expect(hourLabel(21 * 60)).toBe("9");
+  });
+});
+
+describe("unscheduledSections", () => {
+  it("names a section with no meeting time", () => {
+    const online = section(8, []);
+    expect(unscheduledSections([section(1, [meeting("monday", "09:00", "09:50")]), online])).toEqual([
+      online,
+    ]);
+  });
+
+  it("counts an all day meeting as no meeting time", () => {
+    const allDay = section(9, [meeting("monday", "00:00", "23:59", { all_day: true })]);
+    expect(unscheduledSections([allDay])).toEqual([allDay]);
   });
 });
