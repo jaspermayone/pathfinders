@@ -9,6 +9,8 @@ import { SectionCard } from "./components/SectionCard";
 import { useAsync, useDebounced, useStoredState } from "./lib/hooks";
 import { conflictingCrns, findConflicts, totalCredits } from "./lib/schedule";
 import { meetsMinRating } from "./lib/rmp";
+import { sectionKey, soloPartnerCrn, unpairedSections } from "./lib/linked";
+import { batchCrns, indexByCrn, missingPartnerCrns, partnersOf } from "./lib/partners";
 import { defaultTermUid, selectableTerms } from "./lib/terms";
 
 const PER_PAGE = 50;
@@ -32,6 +34,12 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [plan, setPlan] = useStoredState<Section[]>("pathfinders.plan", []);
+  // A lab the student took out must not come back the next time the lecture is
+  // added, so every removal is remembered.
+  const [declined, setDeclined] = useStoredState<string[]>(
+    "pathfinders.declinedPartners",
+    [],
+  );
 
   // Typing in the search box must not fire one request per keystroke.
   const debounced = useDebounced(filters, 300);
@@ -69,16 +77,72 @@ export default function App() {
       : all;
   }, [sections.data, debounced.minRating]);
 
+  // A lecture usually pairs with a lab on another page, so the partners the
+  // page does not hold are fetched once for the whole page, not once per card.
+  const wantedCrns = useMemo(
+    () => missingPartnerCrns(shownSections),
+    [shownSections],
+  );
+
+  const partners = useAsync<Section[]>(
+    (signal) =>
+      wantedCrns.length === 0
+        ? Promise.resolve([])
+        : Promise.all(
+            batchCrns(wantedCrns).map((crns) =>
+              catalog
+                .sections({ term_uid: termUid, crn: crns, per_page: crns.length }, signal)
+                .then((r) => r.data),
+            ),
+          ).then((groups) => groups.flat()),
+    [wantedCrns.join(","), termUid],
+  );
+
+  const byCrn = useMemo(
+    () => indexByCrn(shownSections, plan, partners.data ?? []),
+    [shownSections, plan, partners.data],
+  );
+
   const planCrns = useMemo(() => new Set(plan.map((s) => s.crn)), [plan]);
+  const unpaired = useMemo(() => unpairedSections(plan), [plan]);
   const clashing = useMemo(() => conflictingCrns(plan), [plan]);
   const conflicts = useMemo(() => findConflicts(plan), [plan]);
 
-  const togglePlan = (section: Section) =>
-    setPlan((previous) =>
-      previous.some((s) => s.crn === section.crn)
-        ? previous.filter((s) => s.crn !== section.crn)
-        : [...previous, section],
-    );
+  const togglePlan = (section: Section) => {
+    const key = sectionKey(section.term.uid, section.crn);
+
+    if (plan.some((s) => s.crn === section.crn)) {
+      setDeclined((previous) =>
+        previous.includes(key) ? previous : [...previous, key],
+      );
+      setPlan((previous) => previous.filter((s) => s.crn !== section.crn));
+      return;
+    }
+
+    // Adding a section back is a decision to keep it.
+    setDeclined((previous) => previous.filter((k) => k !== key));
+
+    setPlan((previous) => {
+      const next = [...previous, section];
+
+      // Only one candidate means there is no choice to make, so take it. A
+      // lecture with several labs is left to the student.
+      const partnerCrn = soloPartnerCrn(section);
+      const partner = partnerCrn === null ? undefined : byCrn.get(partnerCrn);
+      const partnerKey = partner && sectionKey(partner.term.uid, partner.crn);
+
+      if (
+        partner &&
+        partnerKey &&
+        !declined.includes(partnerKey) &&
+        !next.some((s) => s.crn === partner.crn)
+      ) {
+        next.push(partner);
+      }
+
+      return next;
+    });
+  };
 
   const onFiltersChange = (next: Filters) => {
     setFilters(next);
@@ -176,6 +240,8 @@ export default function App() {
                 inPlan={planCrns.has(section.crn)}
                 conflicting={clashing.has(section.crn) && planCrns.has(section.crn)}
                 onToggle={togglePlan}
+                partners={partnersOf(section, byCrn)}
+                plannedCrns={planCrns}
               />
             ))}
           </div>
@@ -214,6 +280,30 @@ export default function App() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {unpaired.length > 0 && (
+                  <div
+                    role="alert"
+                    className="mt-3 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                  >
+                    <p className="font-medium">
+                      {unpaired.length === 1
+                        ? "One section still needs its partner:"
+                        : `${unpaired.length} sections still need a partner:`}
+                    </p>
+                    <ul className="mt-1 list-inside list-disc">
+                      {unpaired.map((section) => (
+                        <li key={`${section.term.uid}-${section.crn}`}>
+                          {section.course_code} needs CRN{" "}
+                          {section.linked?.crns.join(" or ")}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1">
+                      LeopardWeb rejects the registration if you leave one out.
+                    </p>
                   </div>
                 )}
 

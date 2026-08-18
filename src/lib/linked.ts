@@ -1,59 +1,49 @@
 import type { Section } from "../api/types";
 
-/** Schedule types that count as a lab for pairing. */
-const LAB_TYPES = new Set(["laboratory"]);
+/**
+ * Banner marks the sections a student has to register together, most often a
+ * lecture and its lab. The catalog API passes that marking through as
+ * `linked`, so nothing here has to guess the pairing from a section number.
+ */
 
-export function isLab(section: Section): boolean {
-  return LAB_TYPES.has(section.schedule_type ?? "");
+/** CRNs Banner pairs with this section. */
+export function partnerCrns(section: Section): number[] {
+  return section.linked?.crns ?? [];
+}
+
+/** True when the section cannot be registered on its own. */
+export function needsPartner(section: Section): boolean {
+  return section.linked?.required === true && partnerCrns(section).length > 0;
 }
 
 /**
- * The link group a section belongs to, or null when it has none.
- *
- * WIT numbers linked sections `<number><LETTER>`, and the trailing letter is
- * the link. CHEM 1000 runs lecture 1A with labs 2A and 3A, then lecture 4B with
- * labs 5B and 6B. Banner publishes a real linkIdentifier, but the importer does
- * not keep it, so the letter is what there is.
- *
- * Checked against Fall 2026: 250 letter groups, 239 hold a lecture and at least
- * one lab, and not one holds labs alone.
+ * The one partner to add without asking. Null when Banner offers a choice,
+ * because picking for the student would hide the other options.
  */
-export function linkGroup(sectionNumber: string): string | null {
-  const match = /^\d+([A-Z])$/.exec(sectionNumber.trim());
-  return match ? match[1] : null;
+export function soloPartnerCrn(section: Section): number | null {
+  const crns = partnerCrns(section);
+  return needsPartner(section) && crns.length === 1 ? crns[0] : null;
 }
 
-/** Identifies the course a section belongs to, across a single term. */
-export function courseKey(section: Section): string {
-  return `${section.term.uid}|${section.subject}|${section.course_number}`;
+/** Partners of a section that are already in the plan. */
+export function plannedPartners(section: Section, plan: Section[]): Section[] {
+  const crns = new Set(partnerCrns(section));
+  return plan.filter(
+    (other) => other.term.uid === section.term.uid && crns.has(other.crn),
+  );
 }
 
-/**
- * Sections that must be taken together with the given one.
- *
- * Where a letter group exists it decides the pairing. Where it does not, the
- * whole course is the group: 36 courses in Fall 2026 number their sections
- * plainly, and there the only honest answer is every lab of that course.
- */
-export function companions(section: Section, pool: Section[]): Section[] {
-  const key = courseKey(section);
-  const group = linkGroup(section.section_number);
-
-  return pool.filter((other) => {
-    if (other.crn === section.crn) return false;
-    if (courseKey(other) !== key) return false;
-    return linkGroup(other.section_number) === group;
-  });
+/** True when the section needs a partner and none of them is in the plan. */
+export function missingPartner(section: Section, plan: Section[]): boolean {
+  return needsPartner(section) && plannedPartners(section, plan).length === 0;
 }
 
-/** Labs that pair with a section. Empty when the section is itself a lab. */
-export function pairedLabs(section: Section, pool: Section[]): Section[] {
-  if (isLab(section)) return [];
-  return companions(section, pool).filter(isLab);
+/** Every planned section that still has no partner beside it. */
+export function unpairedSections(plan: Section[]): Section[] {
+  return plan.filter((section) => missingPartner(section, plan));
 }
 
-/** Non-lab sections that a lab pairs with. Empty when the section is not a lab. */
-export function pairedLectures(section: Section, pool: Section[]): Section[] {
-  if (!isLab(section)) return [];
-  return companions(section, pool).filter((other) => !isLab(other));
+/** Identifies a section across terms, for tracking what the student removed. */
+export function sectionKey(termUid: number, crn: number): string {
+  return `${termUid}-${crn}`;
 }

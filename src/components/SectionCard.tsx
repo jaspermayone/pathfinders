@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Instructor, Section } from "../api/types";
 import { sectionHue } from "../lib/schedule";
+import { LinkedPartners } from "./LinkedPartners";
 import { InstructorDialog } from "./InstructorDialog";
 import { RmpBadge } from "./RmpBadge";
 import { SeatBar } from "./SeatBar";
@@ -10,6 +11,9 @@ interface Props {
   inPlan: boolean;
   conflicting: boolean;
   onToggle: (section: Section) => void;
+  /** Partner sections Banner makes a student register with this one. */
+  partners?: Section[];
+  plannedCrns?: Set<number>;
 }
 
 const DAY_LETTER: Record<string, string> = {
@@ -22,7 +26,14 @@ const DAY_LETTER: Record<string, string> = {
   sunday: "U",
 };
 
-export function SectionCard({ section, inPlan, conflicting, onToggle }: Props) {
+export function SectionCard({
+  section,
+  inPlan,
+  conflicting,
+  onToggle,
+  partners = [],
+  plannedCrns,
+}: Props) {
   const hue = sectionHue(section.crn);
   const [shown, setShown] = useState<Instructor | null>(null);
 
@@ -100,6 +111,13 @@ export function SectionCard({ section, inPlan, conflicting, onToggle }: Props) {
           {section.credit_hours ?? "?"} cr · {section.schedule_type ?? "—"}
         </span>
       </div>
+
+      <LinkedPartners
+        section={section}
+        partners={partners}
+        plannedCrns={plannedCrns}
+        onToggle={onToggle}
+      />
 
       {conflicting && (
         <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">

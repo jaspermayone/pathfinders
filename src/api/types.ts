@@ -96,6 +96,15 @@ export interface FinalExam {
   location: string | null;
 }
 
+export interface LinkedSections {
+  /** True when Banner marks this section as part of a pairing. */
+  required: boolean;
+  /** Banner's identifier, e.g. "A1" for a lecture and "B1" for its labs. */
+  identifier: string | null;
+  /** CRNs of the partner sections in the same term. */
+  crns: number[];
+}
+
 export interface Section {
   crn: number;
   pub_id: string;
@@ -117,6 +126,11 @@ export interface Section {
    * data for the CRN.
    */
   seats: { capacity: number | null; available: number | null };
+  /**
+   * Sections Banner makes a student register together, most often a lecture and
+   * its lab. Optional because older API builds do not send it.
+   */
+  linked?: LinkedSections;
   start_date: string | null;
   end_date: string | null;
   instructors: Instructor[];

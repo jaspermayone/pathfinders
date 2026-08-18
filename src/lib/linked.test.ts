@@ -1,159 +1,132 @@
 import { describe, expect, it } from "vitest";
-import type { Section } from "../api/types";
+import type { LinkedSections, Section } from "../api/types";
 import {
-  companions,
-  courseKey,
-  isLab,
-  linkGroup,
-  pairedLabs,
-  pairedLectures,
+  missingPartner,
+  needsPartner,
+  partnerCrns,
+  plannedPartners,
+  sectionKey,
+  soloPartnerCrn,
+  unpairedSections,
 } from "./linked";
 
-function section(
-  crn: number,
-  sectionNumber: string,
-  scheduleType: string,
-  overrides: Partial<Section> = {},
-): Section {
+function section(crn: number, linked?: LinkedSections, termUid = 202710): Section {
   return {
     crn,
-    pub_id: `crs_${crn}`,
-    term: { uid: 202710, name: "Fall 2026" },
+    pub_id: `pub-${crn}`,
+    term: { uid: termUid, name: "Fall 2026" },
     subject: "Chemistry (CHEM)",
     subject_code: "CHEM",
     course_number: "1000",
-    section_number: sectionNumber,
-    course_code: `CHEM 1000-${sectionNumber}`,
+    section_number: "1A",
+    course_code: `CHEM 1000-${crn}`,
     title: "General Chemistry",
-    schedule_type: scheduleType,
-    schedule_type_code: null,
-    credit_hours: 3,
+    schedule_type: "lecture",
+    schedule_type_code: "LEC",
+    credit_hours: 4,
     grade_mode: null,
     status: "active",
-    seats: { capacity: 24, available: 4 },
-    start_date: null,
-    end_date: null,
+    seats: { capacity: 24, available: 6 },
+    linked,
+    start_date: "2026-09-08",
+    end_date: "2026-12-15",
     instructors: [],
     meeting_times: [],
     final_exam: null,
-    ...overrides,
-  } as Section;
+  };
 }
 
-// CHEM 1000 as the registrar publishes it: two letter groups, each a lecture
-// with two labs.
-const CHEM = [
-  section(16861, "1A", "lecture"),
-  section(16862, "2A", "laboratory"),
-  section(16863, "3A", "laboratory"),
-  section(16864, "4B", "lecture"),
-  section(16865, "5B", "laboratory"),
-  section(16866, "6B", "laboratory"),
-];
+const LECTURE = section(1, { required: true, identifier: "A1", crns: [2, 3] });
+const LAB_ONE = section(2, { required: true, identifier: "B1", crns: [1] });
+const LAB_TWO = section(3, { required: true, identifier: "B1", crns: [1] });
+const SOLO = section(9, { required: false, identifier: null, crns: [] });
 
-describe("linkGroup", () => {
-  it("reads the trailing letter as the group", () => {
-    expect(linkGroup("13D")).toBe("D");
+describe("partnerCrns", () => {
+  it("lists the CRNs Banner pairs with the section", () => {
+    expect(partnerCrns(LECTURE)).toEqual([2, 3]);
   });
 
-  it("has no group for a plain number", () => {
-    expect(linkGroup("7")).toBeNull();
+  it("is empty for a section that stands alone", () => {
+    expect(partnerCrns(SOLO)).toEqual([]);
   });
 
-  it("has no group for a prefixed number like X06", () => {
-    expect(linkGroup("X06")).toBeNull();
-  });
-
-  it("ignores surrounding spaces", () => {
-    expect(linkGroup(" 2A ")).toBe("A");
+  it("is empty when the API sends no linked field", () => {
+    expect(partnerCrns(section(5))).toEqual([]);
   });
 });
 
-describe("isLab", () => {
-  it("recognises a laboratory", () => {
-    expect(isLab(section(1, "2A", "laboratory"))).toBe(true);
+describe("needsPartner", () => {
+  it("is true for a lecture with labs", () => {
+    expect(needsPartner(LECTURE)).toBe(true);
   });
 
-  it("does not treat a lecture as a lab", () => {
-    expect(isLab(section(1, "1A", "lecture"))).toBe(false);
+  it("is false for a section that stands alone", () => {
+    expect(needsPartner(SOLO)).toBe(false);
   });
 
-  it("does not trip over a missing schedule type", () => {
-    expect(isLab(section(1, "1A", "lecture", { schedule_type: null }))).toBe(false);
-  });
-});
-
-describe("courseKey", () => {
-  it("separates the same course number in different subjects", () => {
-    expect(courseKey(section(1, "1A", "lecture"))).not.toBe(
-      courseKey(section(2, "1A", "lecture", { subject: "Physics (PHYS)" })),
-    );
-  });
-
-  it("separates the same course in different terms", () => {
-    expect(courseKey(section(1, "1A", "lecture"))).not.toBe(
-      courseKey(
-        section(2, "1A", "lecture", { term: { uid: 202610, name: "Fall 2025" } }),
-      ),
+  it("is false when Banner names no partner, whatever the flag says", () => {
+    expect(needsPartner(section(6, { required: true, identifier: "A1", crns: [] }))).toBe(
+      false,
     );
   });
 });
 
-describe("companions", () => {
-  it("keeps only the sections sharing the letter group", () => {
-    const found = companions(CHEM[0], CHEM).map((s) => s.section_number);
-    expect(found).toEqual(["2A", "3A"]);
+describe("soloPartnerCrn", () => {
+  it("names the partner when there is only one", () => {
+    expect(soloPartnerCrn(LAB_ONE)).toBe(1);
   });
 
-  it("never returns the section itself", () => {
-    expect(companions(CHEM[1], CHEM).map((s) => s.crn)).not.toContain(16862);
+  it("returns null when the student has a choice", () => {
+    expect(soloPartnerCrn(LECTURE)).toBeNull();
   });
 
-  it("ignores sections of another course", () => {
-    const other = section(99, "2A", "laboratory", {
-      subject: "Physics (PHYS)",
-      course_number: "1100",
-    });
-    expect(companions(CHEM[0], [...CHEM, other])).toHaveLength(2);
-  });
-
-  it("groups plainly numbered sections by the whole course", () => {
-    const plain = [
-      section(16769, "1", "lecture", { subject: "Manufacturing (MANF)", course_number: "3200" }),
-      section(16770, "2", "laboratory", { subject: "Manufacturing (MANF)", course_number: "3200" }),
-      section(16771, "3", "laboratory", { subject: "Manufacturing (MANF)", course_number: "3200" }),
-    ];
-    expect(companions(plain[0], plain).map((s) => s.crn)).toEqual([16770, 16771]);
-  });
-
-  it("does not pair a lettered section with a plainly numbered one", () => {
-    const stray = section(17214, "X06", "laboratory");
-    expect(companions(CHEM[0], [...CHEM, stray])).toHaveLength(2);
+  it("returns null for a section that stands alone", () => {
+    expect(soloPartnerCrn(SOLO)).toBeNull();
   });
 });
 
-describe("pairedLabs and pairedLectures", () => {
-  it("gives a lecture its labs", () => {
-    expect(pairedLabs(CHEM[0], CHEM).map((s) => s.section_number)).toEqual(["2A", "3A"]);
+describe("plannedPartners", () => {
+  it("finds the partners already in the plan", () => {
+    expect(plannedPartners(LECTURE, [LECTURE, LAB_TWO])).toEqual([LAB_TWO]);
   });
 
-  it("gives a lab its lecture", () => {
-    expect(pairedLectures(CHEM[1], CHEM).map((s) => s.section_number)).toEqual(["1A"]);
+  it("does not match a CRN from another term", () => {
+    const otherTerm = section(2, { required: true, identifier: "B1", crns: [1] }, 202620);
+
+    expect(plannedPartners(LECTURE, [otherTerm])).toEqual([]);
+  });
+});
+
+describe("missingPartner", () => {
+  it("is true for a lecture planned without a lab", () => {
+    expect(missingPartner(LECTURE, [LECTURE])).toBe(true);
   });
 
-  it("asks no lab of a lab", () => {
-    expect(pairedLabs(CHEM[1], CHEM)).toEqual([]);
+  it("is false once one lab is in the plan", () => {
+    expect(missingPartner(LECTURE, [LECTURE, LAB_ONE])).toBe(false);
   });
 
-  it("asks no lecture of a lecture", () => {
-    expect(pairedLectures(CHEM[0], CHEM)).toEqual([]);
+  it("is false for a section that stands alone", () => {
+    expect(missingPartner(SOLO, [SOLO])).toBe(false);
+  });
+});
+
+describe("unpairedSections", () => {
+  it("reports both sides while the plan holds only one", () => {
+    expect(unpairedSections([LECTURE])).toEqual([LECTURE]);
   });
 
-  it("returns nothing when the course has no lab", () => {
-    const lectureOnly = [
-      section(1, "1A", "lecture"),
-      section(2, "2A", "lecture"),
-    ];
-    expect(pairedLabs(lectureOnly[0], lectureOnly)).toEqual([]);
+  it("reports nothing once the pair is complete", () => {
+    expect(unpairedSections([LECTURE, LAB_ONE])).toEqual([]);
+  });
+
+  it("reports nothing for a plan of independent sections", () => {
+    expect(unpairedSections([SOLO])).toEqual([]);
+  });
+});
+
+describe("sectionKey", () => {
+  it("keeps the same CRN in two terms apart", () => {
+    expect(sectionKey(202710, 1)).not.toBe(sectionKey(202620, 1));
   });
 });
