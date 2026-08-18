@@ -27,11 +27,15 @@ function section(crn: number, linked?: LinkedSections): Section {
     meeting_times: [
       {
         day: "tuesday",
+        day_of_week: 2,
         begin_time: "08:00",
         end_time: "09:50",
+        begin_time_12h: "8:00 AM",
+        end_time_12h: "9:50 AM",
+        duration_minutes: 110,
+        meeting_type: "Class",
+        all_day: false,
         location: null,
-        building: null,
-        room: null,
       },
     ],
     final_exam: null,
